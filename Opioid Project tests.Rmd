@@ -1,0 +1,216 @@
+---
+title: "Opioid"
+author: |
+ | *Ali Al-Ghaithi, Derek P, Matthew Pelz, Xuan-Ha Vandenberg*
+ |
+ | *Introduction to Data Science*
+ | *University of Nebraska Omaha*
+date: "*Spring 2019*"
+abstract: ""
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align='center')
+knitr::opts_knit$set(root.dir = 'C:/Users/pelzm/Box/Data Visualization Undergraduate Project/Pelz data cleaning/Data')
+library(reshape2)
+library(knitr)
+library(tidyverse)
+library(maps)
+library(ggmap)
+```
+
+```{r}
+deathsByCounty <- read_csv("OpioidDB_drugdeaths_countydata_2019-01-16 - amfar by county.csv") %>% data.frame()
+colnames(deathsByCounty)[5] <- "DRUGDEATHS"
+deathsByCounty[4] <- NULL
+
+deathRate <- read_csv("OpioidDB_drugdeathrate_2019-03-01.csv") %>% data.frame()
+colnames(deathRate)[5] <- "DRUGDEATHSPER100K"
+deathRate[4] <- NULL
+deathRate$STATEFP <- as.numeric(deathRate$STATEFP)
+deathRate$COUNTYFP <- as.numeric(deathRate$COUNTYFP)
+
+countyPop <- read_csv("OpioidDB_Population_2019-03-01.csv") %>% data.frame()
+colnames(countyPop)[5] <- "POPULATION"
+countyPop[4] <- NULL
+countyPop$STATEFP <- as.numeric(countyPop$STATEFP)
+countyPop$COUNTYFP <- as.numeric(countyPop$COUNTYFP)
+
+rxRate <- read_csv("OpioidDB_opioid_RxRate_2019-02-19.csv") %>% data.frame()
+colnames(rxRate)[5] <- "RXRATEPER100"
+rxRate[4] <- NULL
+rxRate$STATEFP <- as.numeric(rxRate$STATEFP)
+rxRate$COUNTYFP <- as.numeric(rxRate$COUNTYFP)
+
+prAbuse <- read_csv("OpioidDB_nonmedpain_2019-03-01.csv") %>% data.frame()
+colnames(prAbuse)[5] <- "PERCENTPRABUSERS12ANDOLDER"
+prAbuse[4] <- NULL
+prAbuse$STATEFP <- as.numeric(prAbuse$STATEFP)
+prAbuse$COUNTYFP <- as.numeric(prAbuse$COUNTYFP)
+
+amfarCounty <- full_join(deathRate, deathsByCounty) %>% full_join(countyPop) %>% full_join(rxRate) %>% full_join(prAbuse)
+colnames(amfarCounty) <-tolower(colnames(amfarCounty))
+```
+```{r}
+library(choroplethr)
+library(choroplethrMaps)
+data(county.regions)
+countyTemp <- cbind(county.regions$region, county.regions$county.name, county.regions$state.name) %>% as.data.frame()
+colnames(countyTemp) <- c("region", "county", "state")
+amfarCounty$countyfp <- formatC(amfarCounty$countyfp, width = 3, format = "d", flag = "0")
+amfarCounty$region <- do.call(paste, c(amfarCounty[1:2], sep=""))
+choroplethDat <- full_join(countyTemp, amfarCounty, by=c("region")) %>% filter(year == "2014")
+choroplethDat$region <- as.numeric(choroplethDat$region)
+choroplethDatRX <- choroplethDat
+choroplethDatRX$value <- choroplethDatRX$rxrateper100
+
+county_choropleth(choroplethDatRX, title = "Opioid prescriptions per 100 People", legend = "", num_colors = 5,state_zoom = c("west virginia", "virginia", "tennessee", "kentucky"), county_zoom = NULL, reference_map = FALSE) + scale_fill_brewer(palette=5, na.value = "grey50")
+
+choroplethDatAbuse <- choroplethDat
+choroplethDatAbuse$value <- choroplethDatAbuse$percentprabusers12andolder
+county_choropleth(choroplethDatAbuse, title = "Percent of People 12 and Over Reporting Non-medical Use of pain Releivers", legend = "", num_colors = 5,state_zoom = "colorado", county_zoom = NULL, reference_map = FALSE) + scale_fill_brewer(palette=4, na.value = "grey50")
+```
+```{r}
+choro              = CountyChoropleth$new(choroplethDatRX)
+choro$title        = "Opioid Prescriptions in US Counties"
+choro$ggplot_scale = scale_fill_brewer(name="Annual Prescriptions per 100 People", palette=5, na.value = "grey50", drop=FALSE)
+choro$render()
+
+choro2              = CountyChoropleth$new(choroplethDatAbuse)
+choro2$title        = "Pain Reliever Abuse in US Counties"
+choro2$ggplot_scale = scale_fill_brewer(name="Self-reported Abusers per 100 People", palette=5, na.value = "grey50", drop=FALSE)
+choro2$render()
+
+```
+
+```{r}
+deathsByState <- read_csv("OpioidDB_drugdeaths_statedata_2019-03-01.csv") %>% data.frame()
+colnames(deathsByState)[6] <- "DRUGDEATHS"
+deathsByState[5] <- NULL
+deathsByState$STATEFP <- as.numeric(deathsByState$STATEFP)
+
+deathRateState <- read_csv("OpioidDB_drugdeathrate_statedata_2019-03-01.csv") %>% data.frame()
+colnames(deathRateState)[6] <- "DRUGDEATHSPER100K"
+deathRateState[5] <- NULL
+deathRateState$STATEFP <- as.numeric(deathRateState$STATEFP)
+
+statePop <- read_csv("OpioidDB_Population_statedata_2019-03-01.csv") %>% data.frame()
+colnames(statePop)[6] <- "POPULATION"
+statePop[5] <- NULL
+statePop$STATEFP <- as.numeric(statePop$STATEFP)
+
+rxRateState <- read_csv("OpioidDB_opioid_RxRate_statedata_2019-02-19.csv") %>% data.frame()
+colnames(rxRateState)[6] <- "RXRATEPER100"
+rxRateState[5] <- NULL
+rxRateState$STATEFP <- as.numeric(rxRateState$STATEFP)
+
+prAbuseState <- read_csv("OpioidDB_nonmedpain_statedata_2019-03-01.csv") %>% data.frame()
+colnames(prAbuseState)[6] <- "PERCENTPRABUSERS12ANDOLDER"
+prAbuseState[5] <- NULL
+prAbuseState$STATEFP <- as.numeric(prAbuseState$STATEFP)
+```
+
+```{r}
+amfarState <- full_join(deathRateState, deathsByState) %>% full_join(rxRateState) %>% full_join(prAbuseState) %>% full_join(statePop) 
+colnames(amfarState) <-tolower(colnames(amfarState))
+amfarStatePop <- aggregate(amfarState[9], amfarState[2:4], FUN=mean)
+amfarStatePop$population <-round(amfarStatePop$population)
+amfarState[9] <- NULL
+amfarState <- full_join(amfarState, amfarStatePop)
+amfarState <- amfarState[order(amfarState$state, amfarState$year),]
+amfarState <- unique(amfarState[ , 1:9 ] )
+ggplot(amfarState, aes(year, drugdeaths)) + geom_jitter()
+```
+
+```{r}
+overdosesByDrug <- read_csv("specific drugs kaiser.csv") %>% data.frame() %>% melt(id = "Location") %>% separate(variable, c("Year", "Drug"))
+overdosesByDrug$Year <- gsub("X", "", overdosesByDrug$Year) %>% as.numeric()
+overdosesByDrug$value <- as.numeric(overdosesByDrug$value)
+colnames(overdosesByDrug) <- c("state", "year", "drug", "overdoses by drug")
+
+```
+```{r}
+stateDat <- full_join(overdosesByDrug, amfarState)
+stateDat <- stateDat[order(stateDat$state, stateDat$year),]
+colnames(stateDat) <- c("state", "year", "drug", "drugspecificoverdoses", "statefp", "stateABV", "overalldeathsper100k", "totaldrugdeaths", "rxrateper100", "percentprabusers12andolder", "population")
+stateDat[6] <- NULL
+stateDat[5] <- NULL
+displayState <- head(stateDat, 75)
+
+plotStateDat <- filter(stateDat, state != "United States")
+```
+
+```{r}
+totalDeaths <- stateDat[-(3:5)]
+totalDeaths <- totalDeaths[-(4:6)] %>% na.omit(totalDeaths) %>%unique()
+totalDeathsByState <- aggregate(totalDeaths[3], totalDeaths[1], FUN=sum)  %>% as.data.frame()
+totalDeathsByState <- totalDeathsByState[-45,]
+stateAbb <- read.csv("us-state-ansi-fips.csv")
+colnames(stateAbb) <- c("state", "id", "abb")
+totalDeathsByStateAbb <- full_join(totalDeathsByState, stateAbb, by = "state")
+tilegramDat <- cbind(totalDeathsByStateAbb$id, totalDeathsByStateAbb$totaldrugdeaths, totalDeathsByStateAbb$state) %>% as.data.frame()
+colnames(totalDeathsByStateAbb) <- NULL
+write.csv(tilegramDat, file = 'drugDeaths.csv')
+```
+
+ALI THIS IS THE ONE
+```{r}
+linePlotPalette <- c("#1f78b4","#a6cee3", "#b2df8a","#33a02c")
+overdoseTypes <- stateDat[1:4]
+overdoseTypes <- na.omit(overdoseTypes)
+overdoseTypesByYear <- aggregate(overdoseTypes[4], overdoseTypes[2:3], FUN=sum)
+overdoseTypesByYear$DrugType <- overdoseTypesByYear$drug
+ggplot(overdoseTypesByYear, aes(year, drugspecificoverdoses/1000, color=DrugType)) +  geom_line(size=1.5) + xlab(NULL) + ylab(NULL) + scale_x_continuous(breaks = round(seq(min(overdoseTypesByYear$year), max(overdoseTypesByYear$year), by = 2),1)) + scale_y_continuous(breaks = round(seq(0, max(overdoseTypesByYear$drugspecificoverdoses), by = 10),1)) + ggtitle("Synthetic drugs including Fentanyl are linked \nwith the spike in overdoses")
+```
+
+```{r}
+library(XML)
+library(RCurl)
+library(rlist)
+
+totalDeaths <- as.vector(c("Opioid Epidemic", "2010-Present", sum(totalDeathsByState$totaldrugdeaths))) %>% data.frame() %>% t() %>% data.frame()
+colnames(totalDeaths) <- c("Event", "Years", "Deaths")
+
+cwDeaths <- as.vector(c("Civil War", "1861-1865", 750000)) %>% data.frame() %>% t() %>% data.frame()
+colnames(cwDeaths) <- c("Event", "Years", "Deaths")
+
+url <- getURL("https://en.wikipedia.org/wiki/United_States_military_casualties_of_war",.opts = list(ssl.verifypeer = FALSE) )
+tables <- readHTMLTable(url)
+
+warDeaths <- tables[2] %>% as.data.frame()
+warDeaths <- warDeaths[2:4]
+colnames(warDeaths) <- c("Event", "Years", "Deaths")
+warDeaths <- warDeaths[-1, ] 
+
+deathDat <- rbind(totalDeaths, cwDeaths, warDeaths)
+deathDat$Deaths <- gsub(",", "", deathDat$Deaths)
+deathDat$Deaths <- deathDat$Deaths %>% as.character() %>% as.numeric()
+deathDat <- deathDat[complete.cases(deathDat), ]
+deathDat <- deathDat[order(-deathDat$Deaths),]
+deathDatTop <- deathDat[1:6,]
+deathDatTop$Deaths <- deathDatTop$Deaths/1000
+deathDatTop$Event <- do.call(paste, c(deathDatTop[1:2], sep="L"))
+deathDatTop$indicator <- c("n", "n", "y", "n", "n", "n")
+deathDatTop$Event <- gsub("L", "\n", deathDatTop$Event)
+ggplot(deathDatTop, aes(reorder(Event, Deaths), Deaths, fill=indicator)) + geom_col() + coord_flip() + scale_y_continuous(labels = scales::comma, breaks = round(seq(0, max(deathDatTop$Deaths), by = 200),1)) + theme(axis.text.y = element_text(face = c('plain', 'plain', 'plain', 'bold', 'plain', 'plain'))) + scale_fill_manual(values = c('#595959', '#fc8d62')) + theme(legend.position="none") + xlab(NULL) + ylab(NULL) +  ggtitle("The opioid epidemic has taken nearly as many \nAmerican lives as World War II.")
+```
+```{r}
+setwd("C:/Users/pelzm/Desktop/Opioid data")
+international <- read.csv("3.1_Mortality.csv") %>% as.data.frame()
+interDeaths <- international[1] %>% as.data.frame()
+colnames(interDeaths) <- c("country")
+interDeaths$year <- unlist(international[3]) %>% as.vector() %>% as.numeric()
+interDeaths$deaths <- unlist(international[5]) %>% as.vector()
+interDeaths$deathrate <- unlist(international[7]) %>% as.vector() %>% as.numeric()
+interDeaths <- interDeaths %>% filter(year >=2010)
+interDeaths <- interDeaths[order(-interDeaths$deathrate),]
+interDeathsTop <- interDeaths[1:6,]
+interDeathsTop$country <- gsub(" of America", "", interDeathsTop$country)
+interDeathsTop$country <- gsub("n Federation", "", interDeathsTop$country)
+interDeathsTop$indicator <- c("y", "n", "n", "n", "n", "n")
+ggplot(interDeathsTop, aes(reorder(country, deathrate), deathrate, fill=indicator)) + geom_col() + coord_flip() + scale_y_continuous(labels = scales::comma, breaks = round(seq(0, max(interDeathsTop$deathrate), by = 100),1)) + theme(axis.text.y = element_text(face = c('plain', 'plain', 'plain', 'plain', 'plain', 'bold'))) + scale_fill_manual(values = c('#595959', '#8da0cb')) + theme(legend.position="none") + xlab(NULL) + ylab(NULL) +  ggtitle("The US has the highest opioid-related death rate \nin the world by a wide margin.")
+```

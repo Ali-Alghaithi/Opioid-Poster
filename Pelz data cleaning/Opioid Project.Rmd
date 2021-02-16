@@ -1,0 +1,260 @@
+---
+title: "Opioid"
+author: |
+ | *Ali Al-Ghaithi, Derek P, Matthew Pelz, Xuan-Ha Vandenberg*
+ |
+ | *Introduction to Data Science*
+ | *University of Nebraska Omaha*
+date: "*Spring 2019*"
+abstract: ""
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE,message=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align='center')
+knitr::opts_knit$set(root.dir = '/Users/alialghaithi/Box Sync/Data Visualization Undergraduate Project/Pelz data cleaning/Data')
+library(reshape2)
+library(knitr)
+library(tidyverse)
+library(maps)
+library(ggmap)
+```
+
+```{r message=FALSE}
+deathsByCounty <- read_csv("OpioidDB_drugdeaths_countydata_2019-01-16 - amfar by county.csv") %>% data.frame()
+colnames(deathsByCounty)[5] <- "DRUGDEATHS"
+deathsByCounty[4] <- NULL
+
+deathRate <- read_csv("OpioidDB_drugdeathrate_2019-03-01.csv") %>% data.frame()
+colnames(deathRate)[5] <- "DRUGDEATHSPER100K"
+deathRate[4] <- NULL
+deathRate$STATEFP <- as.numeric(deathRate$STATEFP)
+deathRate$COUNTYFP <- as.numeric(deathRate$COUNTYFP)
+
+countyPop <- read_csv("OpioidDB_Population_2019-03-01.csv") %>% data.frame()
+colnames(countyPop)[5] <- "POPULATION"
+countyPop[4] <- NULL
+countyPop$STATEFP <- as.numeric(countyPop$STATEFP)
+countyPop$COUNTYFP <- as.numeric(countyPop$COUNTYFP)
+
+rxRate <- read_csv("OpioidDB_opioid_RxRate_2019-02-19.csv") %>% data.frame()
+colnames(rxRate)[5] <- "RXRATEPER100"
+rxRate[4] <- NULL
+rxRate$STATEFP <- as.numeric(rxRate$STATEFP)
+rxRate$COUNTYFP <- as.numeric(rxRate$COUNTYFP)
+
+prAbuse <- read_csv("OpioidDB_nonmedpain_2019-03-01.csv") %>% data.frame()
+colnames(prAbuse)[5] <- "PERCENTPRABUSERS12ANDOLDER"
+prAbuse[4] <- NULL
+prAbuse$STATEFP <- as.numeric(prAbuse$STATEFP)
+prAbuse$COUNTYFP <- as.numeric(prAbuse$COUNTYFP)
+
+amfarCounty <- full_join(deathRate, deathsByCounty) %>% full_join(countyPop) %>% full_join(rxRate) %>% full_join(prAbuse)
+colnames(amfarCounty) <-tolower(colnames(amfarCounty))
+amfarCounty$state <- tolower(amfarCounty$state)
+displayCounty <- head(amfarCounty, 75)
+write.csv(displayCounty, file = 'countyDatExample.csv')
+```
+
+```{r message=FALSE}
+deathsByState <- read_csv("OpioidDB_drugdeaths_statedata_2019-03-01.csv") %>% data.frame()
+colnames(deathsByState)[6] <- "DRUGDEATHS"
+deathsByState[5] <- NULL
+deathsByState$STATEFP <- as.numeric(deathsByState$STATEFP)
+
+deathRateState <- read_csv("OpioidDB_drugdeathrate_statedata_2019-03-01.csv") %>% data.frame()
+colnames(deathRateState)[6] <- "DRUGDEATHSPER100K"
+deathRateState[5] <- NULL
+deathRateState$STATEFP <- as.numeric(deathRateState$STATEFP)
+
+statePop <- read_csv("OpioidDB_Population_statedata_2019-03-01.csv") %>% data.frame()
+colnames(statePop)[6] <- "POPULATION"
+statePop[5] <- NULL
+statePop$STATEFP <- as.numeric(statePop$STATEFP)
+
+rxRateState <- read_csv("OpioidDB_opioid_RxRate_statedata_2019-02-19.csv") %>% data.frame()
+colnames(rxRateState)[6] <- "RXRATEPER100"
+rxRateState[5] <- NULL
+rxRateState$STATEFP <- as.numeric(rxRateState$STATEFP)
+
+prAbuseState <- read_csv("OpioidDB_nonmedpain_statedata_2019-03-01.csv") %>% data.frame()
+colnames(prAbuseState)[6] <- "PERCENTPRABUSERS12ANDOLDER"
+prAbuseState[5] <- NULL
+prAbuseState$STATEFP <- as.numeric(prAbuseState$STATEFP)
+```
+
+```{r message=FALSE}
+amfarState <- full_join(deathRateState, deathsByState) %>% full_join(rxRateState) %>% full_join(prAbuseState) %>% full_join(statePop) 
+colnames(amfarState) <-tolower(colnames(amfarState))
+amfarState$state <- tolower(amfarState$state)
+amfarStatePop <- aggregate(amfarState[9], amfarState[2:4], FUN=mean)
+amfarStatePop$population <-round(amfarStatePop$population)
+amfarState[9] <- NULL
+amfarState <- full_join(amfarState, amfarStatePop)
+amfarState <- amfarState[order(amfarState$state, amfarState$year),]
+amfarState <- unique(amfarState[ , 1:9 ] )
+```
+
+```{r message=FALSE}
+overdosesByDrug <- read_csv("specific drugs kaiser.csv") %>% data.frame() %>% melt(id = "Location") %>% separate(variable, c("Year", "Drug"))
+overdosesByDrug$Year <- gsub("X", "", overdosesByDrug$Year) %>% as.numeric()
+overdosesByDrug$value <- as.numeric(overdosesByDrug$value)
+colnames(overdosesByDrug) <- c("state", "year", "drug", "overdoses by drug")
+overdosesByDrug$state <- tolower(overdosesByDrug$state)
+```
+
+```{r message=FALSE}
+stateDat <- full_join(overdosesByDrug, amfarState)
+stateDat <- stateDat[order(stateDat$state, stateDat$year),]
+colnames(stateDat) <- c("state", "year", "drug", "drugspecificoverdoses", "statefp", "stateABV", "overalldeathsper100k", "totaldrugdeaths", "rxrateper100", "percentprabusers12andolder", "population")
+stateDat[6] <- NULL
+stateDat[5] <- NULL
+displayState <- head(stateDat, 75)
+write.csv(displayState, file = 'stateDatExample.csv')
+```
+
+
+# stateDat over the year-totaldrugdeaths plot
+```{r message=FALSE }
+head(stateDat)
+library(plyr)
+stateDattimeseriesplot  <- select(stateDat, year, totaldrugdeaths)
+#group by year:
+stateDattimeseriesplot<- aggregate( totaldrugdeaths~ year, stateDattimeseriesplot, sum)
+plot(stateDattimeseriesplot)
+head(stateDattimeseriesplot)
+tail(stateDattimeseriesplot)
+ggplot(stateDattimeseriesplot)
+ ggplot(stateDattimeseriesplot, aes(x = year, y = totaldrugdeaths)) +geom_line(color="#feb24c")+ggtitle("Opioid-related drug deaths in the United States are increasing year by year") + labs(x = "Year",y="Total Drug Deaths")+ scale_y_continuous(breaks=NULL )+geom_text(aes(label=totaldrugdeaths))
+
+
+```
+
+## Us Map each states:
+```{r message=FALSE}
+#installed.packages("plyr")
+library(plyr)
+stateDatUSMAP  <- select(stateDat, state, totaldrugdeaths)
+
+stateDatUSMAP <- stateDatUSMAP[complete.cases(stateDatUSMAP), ]
+#group by year:
+stateDatUSMAP<- aggregate( stateDatUSMAP[,2] ~stateDatUSMAP[,1], stateDattimeseriesplot, sum)
+
+colnames(stateDatUSMAP) <- c("state", "totaldrugdeaths")
+
+#US Map
+library(maps)
+library(reshape2)
+mdat<- map_data("state")
+map <- merge(mdat, stateDatUSMAP, by.x='region', by.y='state', all.x=TRUE)
+map <- map[order(map$order),c('long','lat','group','region','totaldrugdeaths')]
+dataonmap <-melt(map,id=c('long','lat','group','region'))
+
+mapplot<-ggplot(dataonmap, aes(x=long, y=lat))+
+geom_polygon(aes(group=group,fill=value,State = region)) + theme_bw() +
+theme(legend.position = "", text= element_blank(),line= element_blank()) +theme_void()+scale_fill_continuous(name = "Drug Deaths", label = scales::comma,low="blue",high="red")+
+  theme_void()+guides(size=guide_legend("totaldrugdeaths"))+ggtitle('Total Drug Deaths 2010-2017') 
+
+show(mapplot)
+```
+
+```{r}
+stateDat_2017<- stateDat %>% filter(year==2017,overalldeathsper100k)
+
+library(plyr)
+stateDatUSMAP  <- select(stateDat_2017, state, overalldeathsper100k)
+
+stateDatUSMAP <- stateDatUSMAP[complete.cases(stateDatUSMAP), ]
+head(stateDatUSMAP)
+#group by year:
+stateDatUSMAP<- aggregate( stateDatUSMAP[,2] ~stateDatUSMAP[,1], stateDattimeseriesplot, sum)
+colnames(stateDatUSMAP) <- c("state", "overalldeathsper100k")
+#US Map
+
+head(stateDatUSMAP)
+
+head(stateDatUSMAP)
+library(maps)
+library(reshape2)
+mdat<- map_data("state")
+map <- merge(mdat, stateDatUSMAP, by.x='region', by.y='state', all.x=TRUE)
+map <- map[order(map$order),c('long','lat','group','region','overalldeathsper100k')]
+dataonmap <-melt(map,id=c('long','lat','group','region'))
+
+mapplot<-ggplot(dataonmap, aes(x=long, y=lat))+
+geom_polygon(aes(group=group,fill=value,State = region)) + theme_bw() +
+theme(legend.position = "", text= element_blank(),line= element_blank()) +theme_void()+scale_fill_continuous(name = "Over all deaths per 100k", label = scales::comma,low="#ffeda0",high="#f03b20")+
+  theme_void()+guides(size=guide_legend("overalldeathsper100k"))+ggtitle('Opioid-related drug deaths in the United States in 2017') 
+show(mapplot)
+
+
+```
+
+```{r}
+# Over does 
+stateDat_2017_overdoes<- stateDat %>% filter(year==2017)
+head(stateDat_2017_overdoes)
+
+library(plyr)
+stateDatUSMAP  <- select(stateDat_2017_overdoes, state, rxrateper100)
+
+stateDatUSMAP <- stateDatUSMAP[complete.cases(stateDatUSMAP), ]
+#group by year:
+stateDatUSMAP<- aggregate( stateDatUSMAP[,2] ~stateDatUSMAP[,1], stateDattimeseriesplot, sum)
+
+colnames(stateDatUSMAP) <- c("state", "rxrateper100")
+
+
+#US Map
+library(maps)
+library(reshape2)
+mdat<- map_data("state")
+map <- merge(mdat, stateDatUSMAP, by.x='region', by.y='state', all.x=TRUE)
+map <- map[order(map$order),c('long','lat','group','region','rxrateper100')]
+dataonmap <-melt(map,id=c('long','lat','group','region'))
+
+mapplot<-ggplot(dataonmap, aes(x=long, y=lat))+
+geom_polygon(aes(group=group,fill=value,State = region)) + theme_bw() +
+theme(legend.position = "", text= element_blank(),line= element_blank()) +theme_void()+scale_fill_continuous(name = "Prescriptions made \nfor every 100 people", label = scales::comma,low="#ffeda0",high="#f03b20")+
+  theme_void()+guides(size=guide_legend("rxrateper100"))+ggtitle('Opioid-related drug prescriptions made for every 100 people in the United States in 2017
+                                                                 ') 
+show(mapplot)
+
+
+
+
+
+```
+
+
+```{r}
+
+library(maps)
+library(reshape2)
+mdat<- map_data("state")
+map <- merge(mdat, stateDatUSMAP, by.x='region', by.y='state', all.x=TRUE)
+map <- map[order(map$order),c('long','lat','group','region','rxrateper100')]
+dataonmap <-melt(map,id=c('long','lat','group','region'))
+
+dataonmap<- dataonmap %>% filter(region== c("alabama","mississippi","arkansas","louisiana","tennessee"))
+mapplot<-ggplot(dataonmap, aes(x=long, y=lat))+
+geom_polygon(aes(group=group,fill=value,State = region)) + theme_bw() +
+theme(legend.position = "", text= element_blank(),line= element_blank()) +theme_void()+scale_fill_continuous(name = "Prescriptions made \nfor every 100 people", label = scales::comma,low="#ffeda0",high="#f03b20",limits=c(114.0,428.8),scale(1:100))+
+  theme_void()+guides(size=guide_legend("rxrateper100"))+ggtitle('Alabama and Arkansas have the highest rates \nof opioid prescriptions in the United States in 2017')
+show(mapplot) 
+
+
+# dataonmap<- dataonmap %>% filter(region== c("alabama","mississippi","tennessee","louisiana", "louisiana","indiana","kentucky","arkansas","Oklahoma"))
+#  
+# 
+# 
+# 
+# 
+# ggplot(data = dataonmap) + 
+#   geom_polygon(aes(x = long, y = lat, group = group), fill = "palegreen", color = "black") + 
+#   coord_fixed(1.3)
+
+```
